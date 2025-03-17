@@ -1,320 +1,141 @@
 "use client";
-import { PluralitySocialConnect, ReadFromContractDataType, SendTransactionDataType, WriteToContractDataType } from '@plurality-network/smart-profile-wallet';
-import React, { useState, useEffect } from 'react';
-import { chainId, clientId, contractAddress, RPC } from '../client';
-import { ABI } from '../ABI';
-import { ethers, formatEther } from 'ethers';
-import { parseUnits } from '@ethersproject/units';
 
-// Define the type for the response structure we expect
-interface ConnectedAccountResponse {
+import PluralitySocialConnect, { ReadFromContractDataType, SendTransactionDataType } from "@plurality-network/smart-profile-wallet";
+import { ethers, formatEther } from "ethers";
+import React, { useEffect, useState } from "react";
+import { chainId, clientId, contractAddress, RPC } from "../client";
+import { ABI } from "../ABI";
+
+interface ConnectedAccount {
     id: string;
     eventName: string;
-    data: string;  // The address is stored as a string in the "data" field
+    data: string;
 }
 
-const WalletConnect = () => {
-    const [isLogin, setLogin] = useState(false);
-    const [account, setAccount] = useState<string>("");
-    const [subsCriptionFee, setsubsCriptionFee] = useState<any>(null);
-    const [subsCriptionStart, setsubsCriptionStart] = useState<any>(null);
-    const [subsCriptionEnd, setsubsCriptionEnd] = useState<any>(null);
+export const WalletConnect = () => {
 
-    // Options for the embedded profiles wallet
+    const [account, setAccount] = useState<string | null>(null);
+    const [subscriptionFee, setSubscriptionFee] = useState<string | null>(null);
+    const [walletConnected, setWalletConnected] = useState<boolean>(false);
+
     const options = {
         clientId: clientId,
-        theme: 'light',
-        text: 'Connect Wallet'
+        theme: "light",
+        text: "Connect Wallet"
     };
 
-    const txParams = {
-        from: account as string,
-        value : subsCriptionFee as string
-    };
-
-    const txOptions = JSON.stringify({
-        gasLimit: 1000000,
-    });
-
+    // Function to fetch connected account
     const getConnectedAccount = async () => {
-        try {
-            const response = await PluralitySocialConnect.getConnectedAccount() as ConnectedAccountResponse;
+        console.log("Fetching account...");
 
-            if (response && response.data) {
-                const connectedAccountAddress = response.data;
-                setAccount(connectedAccountAddress);
+        try {
+            const response = await PluralitySocialConnect.getConnectedAccount() as ConnectedAccount;
+            console.log("getConnectedAccount Response:", response);
+
+            if (response?.data && ethers.isAddress(response.data)) {
+                setAccount(response.data);
+                setWalletConnected(true);  // ✅ Mark wallet as connected
+                console.log("Connected Account:", response.data);
+                getSubscriptionFee();  // ✅ Fetch fees only after wallet is connected
             } else {
-                setAccount('No account data');
-                alert('No account data found');
+                setAccount(null);
+                setWalletConnected(false);
+                console.log("No connected account found.");
             }
         } catch (error) {
-            console.error("Error fetching connected account:", error);
-            alert("Error fetching connected account");
+            console.log("Error reading wallet address:", error);
+            setAccount(null);
+            setWalletConnected(false);
         }
     };
 
-    const sendTransaction = async (
-        rawTx: string,
-        rpc: string,
-        chainId: string
-    ) => {
+    // Function to read from contract to fetch subscription fee
+    const getSubscriptionFee = async () => {
+        console.log("Fetching subscription fee...");
         try {
-            const response = await PluralitySocialConnect.sendTransaction(
-                rawTx,
-                rpc,
-                chainId
-            ) as SendTransactionDataType;
-            if (response) {
-                console.log("Send Transaction Response (Inisde dApp): ", response.data)
-                const sendTransactionData = response.data;
-                return sendTransactionData;
-            }
-        }
-        catch (error) {
-            console.error("Error sending transaction:", error);
-            alert("Error sending transaction");
-        }
-    }
-
-    const SendSubscriptionTransaction = async () => {
-        const data = await sendTransaction(
-            JSON.stringify(txParams), // raw data for sending transaction
-            RPC,
-            chainId
-        );
-    } 
-
-    const getWriteContracts = async (
-        address: string,
-        abiVal: string,
-        action: string,
-        params: any,
-        rpc: string,
-        chainId: string,
-        txoptions: string
-    ) => {
-        try {
-            const response = await PluralitySocialConnect.writeToContract(
-                address,
-                abiVal,
-                action,
-                params,
-                rpc,
-                chainId,
-                txoptions
-            ) as WriteToContractDataType;
-            console.log("res", response);
-        }
-        catch (error) {
-            console.error("Error writing to contract:", error);
-            alert("Error writing to contract");
-        }
-    }
-
-    const subsCription = async () => {
-        const feeInEther = parseFloat(subsCriptionFee);
-        const feeInWei = parseUnits(feeInEther.toString(), 'ether');
-        
-        const data = await getWriteContracts(
-            contractAddress,
-            JSON.stringify(ABI),
-            "subscribe",
-            subsCriptionFee,
-            RPC,
-            chainId,
-            txOptions
-        );
-        // setsubsCriptionStart(new Date());
-    }
-
-    const getReadContracts = async (
-        address: string,
-        abiVal: string,
-        action: string,
-        params: any,
-        rpc: string,
-        chainId: string
-    ) => {
-        try {
-            const respone = await PluralitySocialConnect.readFromContract(
-                address,
-                abiVal,
-                action,
-                params,
-                rpc,
+            const response = await PluralitySocialConnect.readFromContract(
+                contractAddress,
+                JSON.stringify(ABI),
+                "SUBSCRIPTION_FEE",
+                JSON.stringify([]),
+                RPC,
                 chainId
             ) as ReadFromContractDataType;
 
-            return respone?.data;
+            console.log("Subscription Fee Response:", response);
+
+            if (response?.data) {
+                // const etherfee = formatEther(response.data.toString());
+                setSubscriptionFee(response.data.toString());
+                console.log("Updated Subscription Fee:", response.data.toString());
+            } else {
+                setSubscriptionFee("Error retrieving fee");
+                console.log("Error retrieving fee");
+            }
         } catch (error) {
-            console.error("Error reading from contract:", error);
-            alert("Error reading from contract");
+            console.log("Error reading contract data:", error);
+            setSubscriptionFee("Error retrieving fee");
         }
     };
 
-    const getSubscriptionFee = async () => {
-        const data = await getReadContracts(
-            contractAddress,
-            JSON.stringify(ABI),
-            "SUBSCRIPTION_FEE",
-            [],
-            RPC,
-            chainId
-        );
+    // Function to send transaction
+    const sendTransactionData = async () => {
+        if (!account || !subscriptionFee || isNaN(Number(subscriptionFee))) return;
 
-        const feeInEther = data ? formatEther(data) : '0';
+        const rawTx = JSON.stringify({
+            contractAddress: contractAddress,
+            abi: ABI,
+            action: "subscribe",
+            params: [account],
+            value: String(subscriptionFee),
+        });
+        console.log("Final Raw Transaction Data:", rawTx);
+        console.log("Account:", account);
+        console.log("Subscription Fee:", subscriptionFee);
 
-        setsubsCriptionFee(feeInEther);
+        try {
+            const response = await PluralitySocialConnect.sendTransaction(rawTx, RPC, chainId) as SendTransactionDataType;
+            console.log("Transaction Response:", response);
+            // alert("Transaction sent successfully");
+        } catch (error) {
+            console.log("Error sending transaction:", error);
+            // alert("Error sending transaction");
+        }
     };
 
-    const getSubscriptionStart = async () => {
-        const data = await getReadContracts(
-            contractAddress,
-            JSON.stringify(ABI),
-            "subscriptionStart",
-            txParams,
-            RPC,
-            chainId
-        );
-        console.log("start subscription", account);
-        setsubsCriptionStart(data);
-        console.log("Subscription Start:", data);
-    }
-
-    const getSubscriptionEnd = async () => {
-        const data = await getReadContracts(
-            contractAddress,
-            JSON.stringify(ABI),
-            "subscriptions",
-            txParams,
-            RPC,
-            chainId
-        );
-        setsubsCriptionEnd(data);
-    };
-
-    const handleDataReturned = (data: any) => {
-        setLogin(true);
+    // Callback function when data is returned from wallet connection
+    const handleDataReturned = () => {
+        console.log("Account data returned, fetching again...");
         getConnectedAccount();
-        getSubscriptionFee();
-        getSubscriptionStart();
-        getSubscriptionEnd();
     };
 
+    // useEffect to check account when component mounts
     useEffect(() => {
-        if (isLogin) {
-            getConnectedAccount();
-            getSubscriptionFee();
-            getSubscriptionStart();
-            getSubscriptionEnd();
-        }
-    }, [isLogin]);
-
-    useEffect(() => {
-        if (subsCriptionFee !== null) {
-            console.log("Subscription fee:", subsCriptionFee);
-        }
-    }, [subsCriptionFee]);
-
-    useEffect(() => {
-        if (subsCriptionStart !== null) {
-            // console.log("Subscription fee:", subsCriptionFee);
-        }
-    }, [subsCriptionStart]);
-
-    useEffect(() => {
-        if (subsCriptionEnd !== null) {
-            // console.log("Subscription fee:", subsCriptionFee);
-        }
-    }, [subsCriptionEnd]);
+        getConnectedAccount();
+    }, []);
 
     return (
-        <>
-            <div className="container">
-                {/* This div will hold the connection button at the center of the screen */}
-                <div className="button-wrapper">
-                    <PluralitySocialConnect
+        <div>
+            <PluralitySocialConnect
+                options={options}
+                onDataReturned={handleDataReturned}
+            />
+
+            {walletConnected ? (
+                <>
+                    <h1>Connected Account: {account}</h1>
+                    <p>Subscription Fee: {subscriptionFee ?? "Fetching..."}</p>
+                    <button onClick={sendTransactionData}>Subscribe</button>
+                </>
+            ) : (
+
+                <>
+                    {/* <PluralitySocialConnect
                         options={options}
-                        onDataReturned={handleDataReturned}
-                    />
-                </div>
-
-                {/* Render user data once logged in */}
-                {isLogin && (
-                    <div className="user-info">
-                        <h1>Wallet Connected</h1>
-                        <p>Address: {account || "Loading..."}</p>
-                        <p>Subscription Fee: {subsCriptionFee} ETH</p>
-                        <p>Subscription Start: {subsCriptionStart || "Loading..."}</p>
-                        <p>Subscription End: {subsCriptionEnd || "Loading..."}</p>
-                        <button onClick={subsCription} className="subscribe-btn">Subscribe</button>
-                        {/* <button onClick={SendSubscriptionTransaction} className="subscribe-btn">Send Transaction</button> */}
-                    </div>
-                )}
-            </div>
-            <style>{`
-                .container {
-                    height: 100vh;
-                    width: 100vw;
-                    display: flex;
-                    justify-content: center;
-                    align-items: center;
-                    background-color: white;
-                    font-family: Arial, sans-serif;
-                }
-                
-                .button-wrapper {
-                    position: absolute;
-                    top: 20px;
-                    right: 20px;
-                }
-
-                .user-info {
-                    text-align: center;
-                    background-color: #ffedd5; /* Light orange */
-                    padding: 20px;
-                    border-radius: 10px;
-                    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-                }
-
-                .user-info h1 {
-                    font-size: 2rem;
-                    color: #333;
-                }
-
-                .user-info p {
-                    font-size: 1rem;
-                    color: #333;
-                }
-
-                .subscribe-btn {
-                    background-color: #ff7f50; /* Light orange */
-                    color: white;
-                    border: none;
-                    padding: 10px 20px;
-                    font-size: 1rem;
-                    border-radius: 5px;
-                    cursor: pointer;
-                    margin-top: 10px;
-                }
-
-                .subscribe-btn:hover {
-                    background-color: #ff5722; /* Slightly darker orange */
-                }
-
-                @media (max-width: 768px) {
-                    .container {
-                        padding: 20px;
-                    }
-
-                    .user-info {
-                        width: 100%;
-                        padding: 15px;
-                    }
-                }
-            `}</style>
-        </>
+                        onDataReturned={handleDataReturned} /> */}
+                    <h1>No Wallet Connected</h1>
+                </>
+            )}
+        </div>
     );
 };
-
-export default WalletConnect;
