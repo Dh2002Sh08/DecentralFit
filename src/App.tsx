@@ -3,6 +3,7 @@ import { PluralitySocialConnect } from '@plurality-network/smart-profile-wallet'
 import React, { useState, useEffect } from 'react';
 import { chainId, clientId, contractAddress, RPC } from '../client';
 import { WalletConnect } from '../components/wallet';
+import SubscriptionApp from '../components/subs';
 
 // Define the type for the response structure we expect
 interface ConnectedAccountResponse {
@@ -15,7 +16,8 @@ const App = () => {
    
     return (
         <div>
-            <WalletConnect />
+            {/* <WalletConnect /> */}
+            <SubscriptionApp />
         </div>
     );
 };

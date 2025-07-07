@@ -1,263 +1,286 @@
-import { PluralitySocialConnect } from '@plurality-network/smart-profile-wallet'
-import { 
-            AllAccountsDataType, 
-            ConnectedAccountDataType, 
-            SignMessageDataType, 
-            VerifySignedMessageDataType,
-            GetBalanceDataType, 
-            GetBlockNumberDataType, 
-            GetTransactionCountDataType, 
-            ReadFromContractDataType, 
-            SendTransactionDataType, 
-            WriteToContractDataType 
-        } from '@plurality-network/smart-profile-wallet';
-import React from 'react';
+import { ABI } from '../ABI';
+import { clientId, RPC, chainId, contractAddress } from '../client';
+import { PluralitySocialConnect } from '@plurality-network/smart-profile-wallet';
+import React, { useState, useEffect } from 'react';
+import { ethers, formatEther } from 'ethers';
 
-import { useState } from 'react';
+const formatDate = (timestamp: number) => {
+    if (!timestamp || isNaN(Number(timestamp)) || Number(timestamp) === 0) return '-';
+    const date = new Date(Number(timestamp) * 1000);
+    return date.toLocaleString();
+};
 
+const SubsPage = () => {
+    const [account, setAccount] = useState<string | null>(null);
+    const [walletConnected, setWalletConnected] = useState<boolean>(false);
+    const [subscriptionFee, setSubscriptionFee] = useState<string | null>(null);
+    const [subStatus, setSubStatus] = useState<boolean | null>(null);
+    const [subStart, setSubStart] = useState<string>('');
+    const [subExpiry, setSubExpiry] = useState<string>('');
+    const [loading, setLoading] = useState(false);
+    const [txHash, setTxHash] = useState<string | null>(null);
+    const [error, setError] = useState<string | null>(null);
 
-const App = () => {
+    const options = { clientId, theme: 'light', text: 'Login to Subscribe' };
 
-    const [isLogin, setLogin] = useState(false);
-
-    // options for the embedded profiles wallet
-    const options = { clientId: '', theme: 'light', text: 'Login' };
-    
-    const abi = '[{"inputs":[],"name":"retrieve","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"num","type":"uint256"}],"name":"store","outputs":[],"stateMutability":"nonpayable","type":"function"}]';
-    const rawTx = JSON.stringify({
-        to: "0xe613B4cd69Fe20E8bd0F0D79a264210886bA1AA2",
-        value: "10000000000000000", //ethers.parseEther("0.01") but keep in string
-        gasLimit: "21000", // we need bigInt, so keep it in string
-        gasPrice: "50000000000", //ethers.parseUnits("50", "gwei") but keep in string
-    })
-    const txParams = JSON.stringify([8])
-    const txOptions = JSON.stringify({ gasLimit: 2000000 })
-
-    const getAllAccounts = async () => {
-        const response = (await PluralitySocialConnect.getAllAccounts()) as AllAccountsDataType;
-        if (response) {
-            const allAccounts = response.data;
-            alert(`All Accounts: ${allAccounts[0]}`)
-            return allAccounts[0]?.address;
-        }
-    }
-
+    // Fetch connected account and all details
     const getConnectedAccount = async () => {
-        const response = (await PluralitySocialConnect.getConnectedAccount()) as ConnectedAccountDataType;
-        if (response) {
-            const connectedAccount = response.data;
-            alert(`Connected Account: ${connectedAccount}`)
-            return connectedAccount?.address;
+        setLoading(true);
+        try {
+            const response: any = await PluralitySocialConnect.getConnectedAccount();
+            if (response?.data && ethers.isAddress(response.data)) {
+                setAccount(response.data);
+                setWalletConnected(true);
+            } else if (response?.data?.address) {
+                setAccount(response.data.address);
+                setWalletConnected(true);
+            } else {
+                setAccount(null);
+                setWalletConnected(false);
+            }
+        } catch (e) {
+            setAccount(null);
+            setWalletConnected(false);
         }
-    }
-
-    const getMessageSignature = async (message: string) => {
-        const response = (await PluralitySocialConnect.getMessageSignature(message)) as SignMessageDataType;
-        if (response) {
-            const signMessage = response.data;
-            alert(`Sign Message Data: ${signMessage}`)
-            console.log(signMessage);
-            return signMessage;
-        }
-    }
-
-    const getVerifyMessageData = async (message: string, key: string) => {
-        const response = (await PluralitySocialConnect.verifyMessageSignature(message, key)) as VerifySignedMessageDataType;
-        if (response) {
-            const verifyMessage = response.data;
-            alert(`Verification Signature Data: ${verifyMessage}`)
-            return verifyMessage;
-        }
-    }
-
-    const getBalanceData = async (rpc: string, chainId: string) => {
-        const response = (await PluralitySocialConnect.getBalance(rpc, chainId)) as GetBalanceDataType;
-        if (response) {
-            const getBalance = response.data;
-            alert(`Balance: ${getBalance}`)
-            return getBalance;
-        }
-    }
-    const sendTransactionData = async (rawTx: string, rpc: string, chainId: string) => {
-        const response = (await PluralitySocialConnect.sendTransaction(rawTx, rpc, chainId)) as SendTransactionDataType;
-        if (response) {
-            console.log("Send Transaction Response (Inisde dApp): ", response.data)
-            const sendTransactionData = response.data;
-            return sendTransactionData;
-        }
-    }
-
-    const fetchBlockNumber = async (rpc: string, chainId: string) => {
-        const response = (await PluralitySocialConnect.getBlockNumber(rpc, chainId)) as GetBlockNumberDataType;
-        if (response) {
-            const blockNumber = response.data;
-            alert(`Block Number: ${blockNumber}`)
-            return blockNumber;
-        }
-    }
-
-    const fetchTransactionCount = async (address: string, rpc: string, chainId: string) => {
-        const response = (await PluralitySocialConnect.getTransactionCount(address, rpc, chainId)) as GetTransactionCountDataType;
-        if (response) {
-            const transactionCount = response.data;
-            alert(`Transaction Count: ${transactionCount}`)
-            return transactionCount;
-        }
-    }
-
-
-    const readFromContractData = async (address: string, abiVal: string, action: string, params: any, rpc: string, chainId: string) => {
-        const response = (await PluralitySocialConnect.readFromContract(address, abiVal, action, params, rpc, chainId)) as ReadFromContractDataType;
-        if (response) {
-            const readContract = response.data;
-            alert(`Read From Contract Data: ${readContract}`)
-            return readContract;
-        }
-    }
-
-    const writeToContractData = async (address: string, abiVal: string, action: string, params: any, rpc: string, chainId: string, options: string) => {
-        const response = (await PluralitySocialConnect.writeToContract(address, abiVal, action, params, rpc, chainId, options)) as WriteToContractDataType;
-        console.log("res", response)
-        if (response) {
-            const writeContract = response.data;
-            alert(`Write To a Contract: ${writeContract}`)
-            return writeContract;
-        }
-    }
-
-    const loadPublicData = async () => {
-        const response = (await PluralitySocialConnect.getPublicData("name")) as ConnectedAccountDataType;
-        if (response) {
-            alert(response.data);
-            console.log("Load Public Data  (Inside dApp):", response.data)
-        }
-    }
-
-    const storePublicData = async () => {
-        const response = (await PluralitySocialConnect.setPublicData("name", "plural-abc")) as ConnectedAccountDataType;
-        if (response) {
-            alert(response.data);
-            console.log("response", response.data)
-        }
-    }
-
-    const loadPrivateData = async () => {
-        const response = (await PluralitySocialConnect.getPrivateData("work")) as ConnectedAccountDataType;
-        if (response) {
-            alert(response.data);
-            console.log("response", response.data)
-        }
-    }
-
-    const storePrivateData = async () => {
-        const response = (await PluralitySocialConnect.setPrivateData("work", "Plurality")) as ConnectedAccountDataType;
-        if (response) {
-            alert(response.data);
-            console.log("response", response.data)
-        }
-    }
-
-    const updateConsent = async () => {
-        const response = (await PluralitySocialConnect.updateConsentOption()) as ConnectedAccountDataType;
-        if (response) {
-            const smartProfileData = response.data;
-            alert(`Connected Account: ${JSON.stringify(response.data)}`)
-            return smartProfileData;
-        }
-    }
-
-    const fetchSmartProfileData = async () => {
-        const response = (await PluralitySocialConnect.getSmartProfileData()) as ConnectedAccountDataType;
-        if (response) {
-            const smartProfileData = response.data;
-            alert(`Connected Account: ${JSON.stringify(response.data)}`)
-            return smartProfileData;
-        }
-    }
-
-    const fetchLoginInfo = async () => {
-        const response = (await PluralitySocialConnect.getLoginInfo()) as ConnectedAccountDataType;
-        if (response) {
-            const loginInfoData = response.data;
-            console.log("Connected Account Info (Inisde dApp)::", loginInfoData);
-            alert(`Connected Account: ${JSON.stringify(loginInfoData)}`)
-            return loginInfoData;
-        }
-    }
-
-    const handleDataReturned = (data: any) => {
-        const receivedData = JSON.parse(JSON.stringify(data));
-        console.log("Login info callback data (Inisde dApp)::", receivedData);
-        setLogin( true );
-
+        setLoading(false);
     };
 
+    // Fetch subscription fee from contract
+    const getSubscriptionFee = async () => {
+        try {
+            const response: any = await PluralitySocialConnect.readFromContract(
+                contractAddress,
+                JSON.stringify(ABI),
+                'SUBSCRIPTION_FEE',
+                JSON.stringify([]),
+                RPC,
+                chainId
+            );
+            if (response?.data) {
+                setSubscriptionFee(ethers.formatEther(response.data.toString())); // show in ETH
+            } else {
+                setSubscriptionFee('Error retrieving fee');
+            }
+        } catch (error) {
+            setSubscriptionFee('Error retrieving fee');
+        }
+    };
+
+    // Fetch subscription status, start, expiry
+    const fetchSubscriptionDetails = async (userAddress: string | { address?: string }) => {
+        setLoading(true);
+        setError(null);
+        try {
+            // Ensure userAddress is a string
+            const address = typeof userAddress === 'string' ? userAddress : userAddress?.address || '';
+            console.log('userAddress for getSubscriptionDetails:', address, typeof address);
+            // isSubscribed
+            const isSubRes: any = await PluralitySocialConnect.readFromContract(
+                contractAddress,
+                JSON.stringify(ABI),
+                'isSubscribed',
+                JSON.stringify([address]),
+                RPC,
+                chainId
+            );
+            setSubStatus(!!isSubRes?.data);
+
+            // getSubscriptionDetails
+            const detailsRes: any = await PluralitySocialConnect.readFromContract(
+                contractAddress,
+                JSON.stringify(ABI),
+                'getSubscriptionDetails',
+                JSON.stringify([address]),
+                RPC,
+                chainId
+            );
+            let startNum = 0, expiryNum = 0;
+            if (detailsRes && detailsRes.data) {
+                if (Array.isArray(detailsRes.data)) {
+                    // Array form: [start, expiry]
+                    const [start, expiry] = detailsRes.data;
+                    startNum = start ? Number(start.toString()) : 0;
+                    expiryNum = expiry ? Number(expiry.toString()) : 0;
+                } else if (typeof detailsRes.data === 'object') {
+                    // Object form: { startTime, expiryTime }
+                    startNum = detailsRes.data.startTime ? Number(detailsRes.data.startTime.toString()) : 0;
+                    expiryNum = detailsRes.data.expiryTime ? Number(detailsRes.data.expiryTime.toString()) : 0;
+                }
+            }
+            setSubStart(startNum > 0 ? startNum.toString() : '');
+            setSubExpiry(expiryNum > 0 ? expiryNum.toString() : '');
+        } catch (e) {
+            setError('Failed to fetch subscription details');
+        }
+        setLoading(false);
+    };
+
+    // Fetch all details on login/account change
+    useEffect(() => {
+        if (walletConnected && account) {
+            getSubscriptionFee();
+            fetchSubscriptionDetails(account);
+        }
+    }, [walletConnected, account]);
+
+    // On mount, try to get account
+    useEffect(() => {
+        getConnectedAccount();
+    }, []);
+
+    // Subscribe/renew
+    const buySubscription = async () => {
+        setLoading(true);
+        setError(null);
+        setTxHash(null);
+        try {
+            // Get fee in wei
+            let feeInWei = subscriptionFee ? ethers.parseUnits(subscriptionFee, 'ether').toString() : '0';
+            // If already in wei, use as is
+            if (subscriptionFee && Number(subscriptionFee) > 100000000000) feeInWei = subscriptionFee;
+            const rawTx = JSON.stringify({
+                contractAddress: contractAddress,
+                abi: ABI,
+                action: 'subscribe',
+                params: [],
+                value: feeInWei,
+            });
+            const response: any = await PluralitySocialConnect.sendTransaction(
+                rawTx,
+                RPC,
+                chainId
+            );
+            if (response && response.data && response.data.hash) {
+                setTxHash(response.data.hash);
+                setTimeout(() => {
+                    if (account) fetchSubscriptionDetails(account);
+                }, 5000);
+            }
+        } catch (e: any) {
+            setError('Transaction failed');
+        }
+        setLoading(false);
+    };
+
+    // Callback for wallet connect
+    const handleDataReturned = () => {
+        getConnectedAccount();
+    };
+
+    // Responsive styles
+    const containerStyle: React.CSSProperties = {
+        minHeight: '100vh',
+        minWidth: '100vw', // Ensure full width
+        background: 'linear-gradient(135deg, #ffe5b4 0%, #fff3e0 100%)',
+        color: '#111',
+        display: 'flex',
+        flexDirection: 'row', // Center horizontally
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontFamily: 'Inter, Arial, sans-serif',
+        padding: '0',
+    };
+    const cardStyle: React.CSSProperties = {
+        background: '#fff8ee',
+        borderRadius: '18px',
+        boxShadow: '0 4px 24px rgba(0,0,0,0.08)',
+        padding: '32px 20px',
+        minWidth: 280,
+        maxWidth: 400,
+        width: '90vw',
+        margin: '16px',
+        color: '#111',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 12,
+    };
+    const labelStyle: React.CSSProperties = { fontWeight: 500, color: '#222', marginRight: 8 };
+    const valueStyle: React.CSSProperties = { fontFamily: 'monospace', color: '#111' };
+    const statusStyle: React.CSSProperties = { fontWeight: 600 };
+    const buttonStyle: React.CSSProperties = {
+        background: '#ff9800',
+        color: '#111',
+        border: 'none',
+        borderRadius: 8,
+        padding: '12px 28px',
+        fontSize: 16,
+        fontWeight: 600,
+        cursor: loading || !account ? 'not-allowed' : 'pointer',
+        boxShadow: '0 2px 8px rgba(255,152,0,0.08)',
+        transition: 'background 0.2s',
+        marginTop: 16,
+    };
+    const txStyle: React.CSSProperties = { color: '#0ea5e9', fontSize: 14, marginBottom: 8, wordBreak: 'break-all' };
+    const errorStyle: React.CSSProperties = { color: '#ef4444', fontSize: 14, marginBottom: 8 };
 
     return (
-
-        <div style={{ 
-            height: "100vh", /* Full viewport height */
-            width: "100vw" /* Full viewport width */
-            }}>
-        <div style={{ 
-                    display: "flex",
-                    justifyContent: "right", /* Centers horizontally */
-                    padding: "20px",
-                    }}>
-
-            <PluralitySocialConnect 
-                options={options}                 
-                onDataReturned={handleDataReturned}
-            />
-            </div>
-            <div style={{
-                padding: "20px",
-                gap: "8px",
-            }}>
-                {isLogin && (
-                    <div>
-                
-                <h1> Wallet SDK Functions </h1>
-                <br/>
-                <button onClick={() => getAllAccounts()}>Get All Accounts</button> 
-                &nbsp;
-                <button onClick={() => getConnectedAccount()}>Get Connected Account</button> 
-                &nbsp;                 
-                <button onClick={() => getMessageSignature("Example `personal_sign` message.")}>Sign Message</button> 
-                &nbsp;
-                <button onClick={() => getVerifyMessageData("Example `personal_sign` message.", "0x8e2eeb0a7fe472bcd9751e2a8f27b60050c98a3140c07679bd1a00082de1fce86c9dbaad511503e1c4b2e9f57f7ddf971865eb9f177387879417ef0776c02cf41b")}>Verify Message</button>
-                &nbsp;
-                <button onClick={() => getBalanceData("https://ethereum-sepolia.rpc.subquery.network/public", "11155111")}>Get Balance</button>
-                &nbsp;
-                <button onClick={() => sendTransactionData(rawTx, "https://ethereum-sepolia.rpc.subquery.network/public", "11155111")}>Send Transaction</button>
-                &nbsp;
-                <button onClick={() => fetchTransactionCount("0xe613B4cd69Fe20E8bd0F0D79a264210886bA1AA2", "https://ethereum-sepolia.rpc.subquery.network/public", "11155111")}>Get Transaction count</button>
-                &nbsp;
-                <button onClick={() => readFromContractData("0x8E26aa0b6c7A396C92237C6a87cCD6271F67f937", abi, "retrieve", "", "https://ethereum-sepolia.rpc.subquery.network/public", "11155111")}>Read Contract</button>
-                &nbsp;
-                <button onClick={() => writeToContractData("0x8E26aa0b6c7A396C92237C6a87cCD6271F67f937", abi, "store", txParams, "https://ethereum-sepolia.rpc.subquery.network/public", "11155111", txOptions)}>Write Contract</button>
-                <hr></hr>
-                <br/>
-                <h1>Profile SDK Functions</h1>
-                <br/>
-                <button onClick={() => storePublicData()}>Set Public Metadata</button>
-                &nbsp;
-                <button onClick={() => loadPublicData()}>Get Public Metadata</button>
-                &nbsp;
-                <button onClick={() => storePrivateData()}>Set Private Metadata</button>
-                &nbsp;
-                <button onClick={() => loadPrivateData()}>Get Private Metadata</button>
-                &nbsp;
-                <button onClick={() => fetchLoginInfo()}>Get Login Info</button>
-                &nbsp;
-                <button onClick={() => updateConsent()}>Update Consent</button>
-                &nbsp;
-                <button onClick={() => fetchSmartProfileData()}>Get Smart Profile Data</button>
+        <div style={containerStyle}>
+            <div style={cardStyle}>
+                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                    <PluralitySocialConnect
+                        options={options}
+                        onDataReturned={handleDataReturned}
+                    />
                 </div>
+                <h2 style={{ textAlign: 'center', margin: '24px 0 12px', color: '#111' }}>
+                    Subscription Portal
+                </h2>
+                {!walletConnected && (
+                    <div style={{ textAlign: 'center', color: '#b26a00', marginBottom: 16 }}>
+                        Please login to continue
+                    </div>
+                )}
+                {walletConnected && (
+                    <>
+                        <div style={{ marginBottom: 8 }}>
+                            <span style={labelStyle}>Account:</span>
+                            <span style={valueStyle}>{account || '-'}</span>
+                        </div>
+                        <div style={{ marginBottom: 8 }}>
+                            <span style={labelStyle}>Subscription Fee:</span>
+                            <span style={valueStyle}>{subscriptionFee ? `${subscriptionFee} ETH` : 'Fetching...'}</span>
+                        </div>
+                        <div style={{ marginBottom: 8 }}>
+                            <span style={labelStyle}>Status:</span>
+                            {loading ? (
+                                <span style={statusStyle}>Loading...</span>
+                            ) : subStatus === null ? (
+                                <span style={statusStyle}>-</span>
+                            ) : subStatus ? (
+                                <span style={{ ...statusStyle, color: '#22c55e' }}>Active</span>
+                            ) : (
+                                <span style={{ ...statusStyle, color: '#ef4444' }}>Inactive</span>
+                            )}
+                        </div>
+                        <div style={{ marginBottom: 8 }}>
+                            <span style={labelStyle}>Start:</span>
+                            <span style={valueStyle}>{subStart && Number(subStart) > 0 ? formatDate(Number(subStart)) : '-'}</span>
+                        </div>
+                        <div style={{ marginBottom: 8 }}>
+                            <span style={labelStyle}>Expiry:</span>
+                            <span style={valueStyle}>{subExpiry && Number(subExpiry) > 0 ? formatDate(Number(subExpiry)) : '-'}</span>
+                        </div>
+                        <button
+                            onClick={buySubscription}
+                            disabled={loading || !account}
+                            style={buttonStyle}
+                        >
+                            {subStatus ? 'Renew Subscription' : 'Buy Subscription'}
+                            {subscriptionFee ? ` (${subscriptionFee} ETH)` : ''}
+                        </button>
+                        {txHash && (
+                            <div style={txStyle}>
+                                Tx Hash: <a href={`https://sepolia.etherscan.io/tx/${txHash}`} target="_blank" rel="noopener noreferrer">{txHash.slice(0, 16)}...</a>
+                            </div>
+                        )}
+                        {error && (
+                            <div style={errorStyle}>{error}</div>
+                        )}
+                    </>
                 )}
             </div>
         </div>
-    )
-}
+    );
+};
 
-export default App
+export default SubsPage;

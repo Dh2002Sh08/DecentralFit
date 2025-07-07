@@ -37,8 +37,8 @@ export const WalletConnect = () => {
                 setAccount(response.data);
                 setWalletConnected(true);  // ✅ Mark wallet as connected
                 console.log("Connected Account:", response.data);
-                getSubscriptionFee();  // ✅ Fetch fees only after wallet is connected
-                getSubscriptionStartTime();
+                getSubscriptionFee();
+                
             } else {
                 setAccount(null);
                 setWalletConnected(false);
@@ -84,7 +84,7 @@ export const WalletConnect = () => {
     const getSubscriptionStartTime = async () => {
         console.log("Fetching subscription start time...");
         if (!account) {
-            console.error("❌ Account is not set. Skipping fetch.");
+            console.error("❌ Account is not set. Skipping subscription start time.");
             return;
         }
 
@@ -98,12 +98,12 @@ export const WalletConnect = () => {
             return;
         }
 
-        console.log("✅ Account Address:", account);
-        console.log("✅ Contract Address:", contractAddress);
-        console.log("✅ ABI:", ABI);
-        console.log("✅ RPC:", RPC);
-        console.log("✅ Chain ID:", chainId);
-
+        // console.log("✅ Account Address:", account);
+        // console.log("✅ Contract Address:", contractAddress);
+        // console.log("✅ ABI:", ABI);
+        // console.log("✅ RPC:", RPC);
+        // console.log("✅ Chain ID:", chainId);
+        console.log("Subscription start :- " , subsCriptionStart);
         const params = JSON.stringify([account]);
     console.log("📌 Params being sent:", params);
 
@@ -167,7 +167,9 @@ export const WalletConnect = () => {
     // useEffect to check account when component mounts
     useEffect(() => {
         getConnectedAccount();
-    }, []);
+        getSubscriptionStartTime();
+
+    }, [account]);
 
     return (
         <div>
@@ -180,7 +182,7 @@ export const WalletConnect = () => {
                 <>
                     <h1>Connected Account: {account}</h1>
                     <p>Subscription Fee: {subscriptionFee ?? "Fetching..."}</p>
-                    <p>SubsCription Start :- {subsCriptionStart}</p>
+                    <p>SubsCription Start :- {subsCriptionStart ?? "Fetching start time..."}</p>
                     <button onClick={sendTransactionData}>Subscribe</button>
                 </>
             ) : (
